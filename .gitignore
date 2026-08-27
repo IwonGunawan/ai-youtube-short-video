@@ -1,4 +1,7 @@
+.env
 venv/
 __pycache__/
+*.pyc
+.DS_Store
 output/
-src/__pycache__/
+models/*.onnx
