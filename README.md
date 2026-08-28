@@ -18,7 +18,7 @@ Generated clips in `output/`.
 
 - **Automatic highlight detection** — LLM ranks moments by virality: hooks, emotional peaks, hot takes, quotables, conflict, practical value
 - **Configurable aspect ratio** — 9:16 vertical, 1:1 square, or any custom `W:H`
-- **Smart face-tracking crop** — YuNet DNN detects speaker face, crops 9:16 window to keep subject centered (falls back to center-crop if no face)
+- **Smart face-tracking crop** — YuNet DNN samples frames across the whole clip every 0.5 s, builds time keyframes of the largest-face horizontal center; crop window follows the face across the clip (linear interpolation, holds during detection gaps, falls back to center-crop if no face)
 - **Auto subtitles** — speech captions burned into final clips: whisper segments sliced to each highlight window, clustered into cues, wrapped and composited as overlay PNGs (font-scaled per resolution; `--no-subtitles` to disable)
 - **Local transcription** — faster-whisper, no API cost, VAD filtering, auto CUDA detection
 - **Multi-provider LLM** — OpenAI, Gemini
@@ -195,9 +195,9 @@ Open http://localhost:8000/web.html
 1. Pipeline downloads (or accepts) a source video.
 2. faster-whisper transcribes audio locally into timestamped segments — zero API cost.
 3. LLM classifies content type, then scores transcript moments by virality and returns `{start, end, score, reason, title}`, enforcing 20–40 s clip length and overlap dedup.
-4. For 9:16 output, YuNet DNN samples frames in each clip, finds largest face, computes horizontal center.
+4. For 9:16 output, YuNet DNN samples frames across the whole clip (every 0.5 s), tracks the largest face's horizontal center, and emits time keyframes.
 5. Transcript segments inside each highlight window are sliced, clustered into ≤6 s cues, wrapped, and rendered as caption overlay PNGs.
-6. ffmpeg crops to 9:16 with crop window centered on detected face (clamped to frame bounds), scales, pads, composites caption overlays onto frames, encodes.
+6. ffmpeg crops to 9:16 with a time-varying crop window that follows the face keyframes (interpolated), scales, pads, composites caption overlays onto frames, encodes.
 7. Transcription/analysis results cached; re-run skips prior stages unless `--force`.
 
 ---
@@ -234,7 +234,7 @@ Open http://localhost:8000/web.html
 - [x] Core download → transcribe → analyze → render pipeline
 - [x] Smart face-tracking crop for 9:16
 - [x] Result caching with `--force` override
-- [ ] Key-frame face tracking across full clip (not just sample frames)
+- [x] Key-frame face tracking across full clip (not just sample frames)
 - [ ] Multi-face tracking (choose or average faces)
 - [x] Auto subtitle/burn-in captions on clips
 - [ ] Music/SFX background mixing

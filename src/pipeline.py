@@ -8,7 +8,7 @@ from pathlib import Path
 from .downloader import download, is_youtube_url
 from .transcriber import transcribe
 from .analyzer import detect_highlights
-from .face_detect import detect_face_center_x
+from .face_detect import detect_face_centers
 from .renderer import render_clip
 from .subtitles import build_srt
 from .cache import load_segments, save_segments, load_highlights, save_highlights
@@ -73,14 +73,14 @@ def run_pipeline(
         out_file = output_dir / f"clip_{i:02d}_{title}.mp4"
         print(f"  [{i}/{len(highlights)}] {hl.title} ({hl.start:.1f}s - {hl.end:.1f}s) score={hl.score}")
         try:
-            face_x = None
+            face_kfs = None
             if ratio == "9:16":
-                face_x = detect_face_center_x(video_path, hl.start, hl.end)
+                face_kfs = detect_face_centers(video_path, hl.start, hl.end)
             srt_path = None
             if subtitles:
                 srt_path = output_dir / f"clip_{i:02d}_{title}.srt"
                 build_srt(segments, hl.start, hl.end, srt_path)
-            render_clip(video_path, hl.start, hl.end, out_file, ratio=ratio, resolution=resolution, face_center_x=face_x, subtitles_path=srt_path)
+            render_clip(video_path, hl.start, hl.end, out_file, ratio=ratio, resolution=resolution, face_keyframes=face_kfs, subtitles_path=srt_path)
             rendered.append(out_file)
             print(f"    -> saved {out_file.name}")
         except Exception as e:
