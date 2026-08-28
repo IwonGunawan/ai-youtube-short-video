@@ -31,7 +31,8 @@ class GenerateRequest(BaseModel):
     language: str = ""   # empty = auto-detect
     hook: bool = True
     subtitles: bool = True
-    face_tracking: str = "largest"   # largest | best | average | closest
+    face_tracking: str = "largest"   # largest | best | average | closest | speaker
+    diarize_speakers: int | None = None
     force: bool = False
 
 
@@ -66,8 +67,10 @@ def generate(req: GenerateRequest):
         cmd.append("--no-hook")
     if not req.subtitles:
         cmd.append("--no-subtitles")
-    if req.face_tracking in ("largest", "best", "average", "closest"):
+    if req.face_tracking in ("largest", "best", "average", "closest", "speaker"):
         cmd += ["--face-tracking", req.face_tracking]
+    if req.diarize_speakers and req.diarize_speakers >= 1:
+        cmd += ["--diarize-speakers", str(req.diarize_speakers)]
     if req.force:
         cmd.append("--force")
 

@@ -152,8 +152,10 @@
         <option value="best">best</option>
         <option value="average">average</option>
         <option value="closest">closest</option>
+        <option value="speaker">speaker</option>
       </select>
-      <p class="hint">largest = single biggest face; best = highest-confidence face; average = all faces; closest = face nearest center.</p>
+      <p class="hint">largest = single biggest face; best = highest-confidence face; average = all faces; closest = face nearest center; speaker = the face that is currently talking.</p>
+      <input type="number" id="diarizeSpeakers" min="1" max="6" placeholder="diarize speakers (auto)">
     </div>
 
     <button type="submit" id="generateBtn">Generate</button>
@@ -178,6 +180,7 @@
   var hookEl = document.getElementById('hook');
   var subtitlesEl = document.getElementById('subtitles');
   var faceTrackingEl = document.getElementById('faceTracking');
+  var diarizeSpeakersEl = document.getElementById('diarizeSpeakers');
   var preview = document.getElementById('preview');
   var log = document.getElementById('log');
   var generateBtn = document.getElementById('generateBtn');
@@ -196,6 +199,8 @@
     if (!hookEl.checked) parts.push('--no-hook');
     if (!subtitlesEl.checked) parts.push('--no-subtitles');
     parts.push('--face-tracking ' + faceTrackingEl.value);
+    var ds = diarizeSpeakersEl.value.trim();
+    if (ds) parts.push('--diarize-speakers ' + ds);
     return parts.join(' ');
   }
 
@@ -203,7 +208,7 @@
     var list = targets();
     preview.textContent = buildCommand(list.length ? list[0] : '<video>');
   }
-  [nEl, ratioEl, resolutionEl, languageEl, hookEl, subtitlesEl, faceTrackingEl, urlsEl].forEach(function (el) {
+  [nEl, ratioEl, resolutionEl, languageEl, hookEl, subtitlesEl, faceTrackingEl, diarizeSpeakersEl, urlsEl].forEach(function (el) {
     el.addEventListener('input', updatePreview);
   });
   updatePreview();
@@ -260,7 +265,8 @@
         language: languageEl.value.trim(),
         hook: hookEl.checked,
         subtitles: subtitlesEl.checked,
-        face_tracking: faceTrackingEl.value
+        face_tracking: faceTrackingEl.value,
+        diarize_speakers: diarizeSpeakersEl.value.trim() ? Number(diarizeSpeakersEl.value) : null
       })
     })
       .then(function (res) { return res.json(); })

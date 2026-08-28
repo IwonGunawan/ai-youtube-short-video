@@ -18,7 +18,7 @@ Generated clips in `output/`.
 
 - **Automatic highlight detection** — LLM ranks moments by virality: hooks, emotional peaks, hot takes, quotables, conflict, practical value
 - **Configurable aspect ratio** — 9:16 vertical, 1:1 square, or any custom `W:H`
-- **Smart face-tracking crop** — YuNet DNN samples frames across the whole clip every 0.5 s, builds time keyframes of the crop-target face; crop window follows across the clip (linear interpolation, holds during detection gaps, falls back to center-crop if no face). Multi-face strategies: `largest` (default), `best`, `average`, `closest` via `--face-tracking`
+- **Smart face-tracking crop** — YuNet DNN samples frames across the whole clip every 0.5 s, builds time keyframes of the crop-target face; crop window follows across the clip (linear interpolation, holds during detection gaps, falls back to center-crop if no face). Strategies via `--face-tracking`: `largest` (default), `best`, `average`, `closest`, or `speaker` (audio diarization maps crop to whoever is talking — no extra deps)
 - **Auto subtitles** — speech captions burned into final clips: whisper segments sliced to each highlight window, clustered into cues, wrapped and composited as overlay PNGs (font-scaled per resolution; `--no-subtitles` to disable)
 - **Local transcription** — faster-whisper, no API cost, VAD filtering, auto CUDA detection
 - **Multi-provider LLM** — OpenAI, Gemini
@@ -131,7 +131,8 @@ python main.py <youtube_url_or_file> [options]
 | `--language`   | auto    | ISO 639-1 code (en, zh, id, etc.) |
 | `--no-hook`    | off     | Flag                              |
 | `--no-subtitles` | off  | Flag, disable burned captions     |
-| `--face-tracking` | largest | largest, best, average, closest  |
+| `--face-tracking` | largest | largest, best, average, closest, speaker |
+| `--diarize-speakers` | auto | Any integer; force speaker count for `speaker` |
 | `--force`      | off     | Flag, ignore cache                |
 
 ```bash
@@ -148,6 +149,18 @@ python main.py ./my_video.mp4 --n 2
 
 Output goes to `./output/`.
 
+#### `--face-tracking` strategies
+
+Milibih satu wajah di frame? Strategi ini menentukan pusat crop:
+
+- `largest` — wajah **terbesar** (luas area). Subjek dekat = paling menonjol. Default.
+- `best` — wajah **confidence tertinggi** (skor deteksi YuNet). Pilih deteksi paling bersih. Berguna saat wajah besar tapi ada bayangan/objek mirip.
+- `average` — **rata-rata** pusat semua wajah. Crop di tengah antara 2 subjek (podcast/duet) — dua-duanya terlihat.
+- `closest` — wajah **terdekat tengah frame**. Pilih subjek paling sentris.
+- `speaker` — **(perlu diarization)** pilih wajah yang **sedang berbicara**. Audio clip di-diarize per speaker turn, lalu tiap speaker dipetakan ke posisi wajahnya; crop mengikuti pembicara aktif. Gagal bila tanpa audio/API energi terlalu rendah. `--diarize-speakers N` memaksa jumlah speaker (default: auto-detect).
+
+Catatan: seluruh keyframe clip mengikuti strategi yang dipilih. Satu wajah: semua strategi hasil sama. Tanpa wajah: fallback center crop.
+
 ### REST API
 
 ```bash
@@ -157,7 +170,7 @@ python server.py    # starts on http://127.0.0.1:5000
 | Endpoint        | Method | Body                                                                                                          |
 | --------------- | ------ | ------------------------------------------------------------------------------------------------------------- |
 | `/api/health`   | GET    | -                                                                                                             |
-| `/api/generate` | POST   | `{"target": "...", "n": 3, "ratio": "9:16", "resolution": 720, "language": "", "hook": true, "subtitles": true, "face_tracking": "largest", "force": false}` |
+| `/api/generate` | POST   | `{"target": "...", "n": 3, "ratio": "9:16", "resolution": 720, "language": "", "hook": true, "subtitles": true, "face_tracking": "largest", "diarize_speakers": null, "force": false}` |
 
 ```json
 {
@@ -196,7 +209,7 @@ Open http://localhost:8000/web.html
 1. Pipeline downloads (or accepts) a source video.
 2. faster-whisper transcribes audio locally into timestamped segments — zero API cost.
 3. LLM classifies content type, then scores transcript moments by virality and returns `{start, end, score, reason, title}`, enforcing 20–40 s clip length and overlap dedup.
-4. For 9:16 output, YuNet DNN samples frames across the whole clip (every 0.5 s), reduces faces per frame via the `--face-tracking` strategy (largest/best/average/closest), emits time keyframes of the target's horizontal center.
+4. For 9:16 output, YuNet DNN samples frames across the whole clip (every 0.5 s), reduces faces per frame via the `--face-tracking` strategy (largest/best/average/closest/speaker), emits time keyframes of the target's horizontal center. With `speaker`, audio is diarized into speaker turns (`--diarize-speakers` to force count) and each speaker is mapped to their usual face position.
 5. Transcript segments inside each highlight window are sliced, clustered into ≤6 s cues, wrapped, and rendered as caption overlay PNGs.
 6. ffmpeg crops to 9:16 with a time-varying crop window that follows the face keyframes (interpolated), scales, pads, composites caption overlays onto frames, encodes.
 7. Transcription/analysis results cached; re-run skips prior stages unless `--force`.
@@ -217,6 +230,8 @@ Open http://localhost:8000/web.html
 │   ├── face_detect.py       # YuNet DNN face detection for smart crop
 │   ├── renderer.py          # ffmpeg clip rendering (caption overlay composite)
 │   ├── subtitles.py         # SRT + caption overlay PNG generation
+│   ├── diarization.py       # speaker diarization (log-mel spectral clustering)
+│   ├── face_detect.py       # YuNet DNN face detection for smart crop
 │   ├── cache.py             # transcription/analysis result cache
 │   └── pipeline.py          # orchestrator
 ├── web/
@@ -237,6 +252,7 @@ Open http://localhost:8000/web.html
 - [x] Result caching with `--force` override
 - [x] Key-frame face tracking across full clip (not just sample frames)
 - [x] Multi-face tracking (choose or average faces)
+- [x] Speaker-aware face tracking (audio diarization, no extra deps)
 - [x] Auto subtitle/burn-in captions on clips
 - [ ] Music/SFX background mixing
 - [ ] Batch processing multiple videos via web UI

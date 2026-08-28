@@ -8,7 +8,8 @@ from pathlib import Path
 from .downloader import download, is_youtube_url
 from .transcriber import transcribe
 from .analyzer import detect_highlights
-from .face_detect import detect_face_centers
+from .face_detect import detect_face_centers, detect_all_faces, speaker_keyframes
+from .diarization import diarize
 from .renderer import render_clip
 from .subtitles import build_srt
 from .cache import load_segments, save_segments, load_highlights, save_highlights
@@ -31,6 +32,7 @@ def run_pipeline(
     force: bool = False,
     subtitles: bool = True,
     face_tracking: str = "largest",
+    diarize_speakers: int | None = None,
 ) -> list[Path]:
     output_dir = output_dir or Path("output")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +78,7 @@ def run_pipeline(
         try:
             face_kfs = None
             if ratio == "9:16":
-                face_kfs = detect_face_centers(video_path, hl.start, hl.end, strategy=face_tracking)
+                face_kfs = _face_keyframes(video_path, hl.start, hl.end, face_tracking, diarize_speakers)
             srt_path = None
             if subtitles:
                 srt_path = output_dir / f"clip_{i:02d}_{title}.srt"
@@ -89,3 +91,17 @@ def run_pipeline(
 
     print(f"\nDone. {len(rendered)}/{len(highlights)} clips saved to {output_dir}/")
     return rendered
+
+
+def _face_keyframes(
+    video_path: Path,
+    start: float,
+    end: float,
+    strategy: str,
+    diarize_speakers: int | None,
+) -> list[tuple[float, float]]:
+    if strategy == "speaker":
+        turns = diarize(video_path, start, end, n_speakers=diarize_speakers)
+        faces = detect_all_faces(video_path, start, end)
+        return speaker_keyframes(faces, turns, clip_start=start)
+    return detect_face_centers(video_path, start, end, strategy=strategy)
