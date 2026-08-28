@@ -140,6 +140,11 @@
       <label for="hook">Add AI-generated hook (unchecking sets --no-hook)</label>
     </div>
 
+    <div class="field checkbox-row">
+      <input type="checkbox" id="subtitles" checked>
+      <label for="subtitles">Burn speech captions (unchecking sets --no-subtitles)</label>
+    </div>
+
     <button type="submit" id="generateBtn">Generate</button>
 
     <div class="preview" id="preview"></div>
@@ -160,6 +165,7 @@
   var resolutionEl = document.getElementById('resolution');
   var languageEl = document.getElementById('language');
   var hookEl = document.getElementById('hook');
+  var subtitlesEl = document.getElementById('subtitles');
   var preview = document.getElementById('preview');
   var log = document.getElementById('log');
   var generateBtn = document.getElementById('generateBtn');
@@ -176,6 +182,7 @@
     parts.push('--resolution ' + resolutionEl.value);
     if (languageEl.value.trim()) parts.push('--language ' + languageEl.value.trim());
     if (!hookEl.checked) parts.push('--no-hook');
+    if (!subtitlesEl.checked) parts.push('--no-subtitles');
     return parts.join(' ');
   }
 
@@ -183,7 +190,7 @@
     var list = targets();
     preview.textContent = buildCommand(list.length ? list[0] : '<video>');
   }
-  [nEl, ratioEl, resolutionEl, languageEl, hookEl, urlsEl].forEach(function (el) {
+  [nEl, ratioEl, resolutionEl, languageEl, hookEl, subtitlesEl, urlsEl].forEach(function (el) {
     el.addEventListener('input', updatePreview);
   });
   updatePreview();
@@ -238,7 +245,8 @@
         ratio: ratioEl.value || '9:16',
         resolution: resolutionEl.value,
         language: languageEl.value.trim(),
-        hook: hookEl.checked
+        hook: hookEl.checked,
+        subtitles: subtitlesEl.checked
       })
     })
       .then(function (res) { return res.json(); })

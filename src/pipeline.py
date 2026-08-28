@@ -10,6 +10,7 @@ from .transcriber import transcribe
 from .analyzer import detect_highlights
 from .face_detect import detect_face_center_x
 from .renderer import render_clip
+from .subtitles import build_srt
 from .cache import load_segments, save_segments, load_highlights, save_highlights
 
 
@@ -28,6 +29,7 @@ def run_pipeline(
     hook: bool = True,
     output_dir: Path | None = None,
     force: bool = False,
+    subtitles: bool = True,
 ) -> list[Path]:
     output_dir = output_dir or Path("output")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -74,7 +76,11 @@ def run_pipeline(
             face_x = None
             if ratio == "9:16":
                 face_x = detect_face_center_x(video_path, hl.start, hl.end)
-            render_clip(video_path, hl.start, hl.end, out_file, ratio=ratio, resolution=resolution, face_center_x=face_x)
+            srt_path = None
+            if subtitles:
+                srt_path = output_dir / f"clip_{i:02d}_{title}.srt"
+                build_srt(segments, hl.start, hl.end, srt_path)
+            render_clip(video_path, hl.start, hl.end, out_file, ratio=ratio, resolution=resolution, face_center_x=face_x, subtitles_path=srt_path)
             rendered.append(out_file)
             print(f"    -> saved {out_file.name}")
         except Exception as e:

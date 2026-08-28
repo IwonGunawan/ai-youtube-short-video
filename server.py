@@ -30,6 +30,7 @@ class GenerateRequest(BaseModel):
     resolution: int = 720
     language: str = ""   # empty = auto-detect
     hook: bool = True
+    subtitles: bool = True
     force: bool = False
 
 
@@ -62,6 +63,8 @@ def generate(req: GenerateRequest):
         cmd += ["--language", req.language.strip()]
     if not req.hook:
         cmd.append("--no-hook")
+    if not req.subtitles:
+        cmd.append("--no-subtitles")
     if req.force:
         cmd.append("--force")
 

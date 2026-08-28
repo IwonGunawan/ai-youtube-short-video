@@ -19,6 +19,7 @@ Generated clips in `output/`.
 - **Automatic highlight detection** — LLM ranks moments by virality: hooks, emotional peaks, hot takes, quotables, conflict, practical value
 - **Configurable aspect ratio** — 9:16 vertical, 1:1 square, or any custom `W:H`
 - **Smart face-tracking crop** — YuNet DNN detects speaker face, crops 9:16 window to keep subject centered (falls back to center-crop if no face)
+- **Auto subtitles** — speech captions burned into final clips: whisper segments sliced to each highlight window, clustered into cues, wrapped and composited as overlay PNGs (font-scaled per resolution; `--no-subtitles` to disable)
 - **Local transcription** — faster-whisper, no API cost, VAD filtering, auto CUDA detection
 - **Multi-provider LLM** — OpenAI, Gemini
 - **Result caching** — skips completed transcription/analysis on re-run, `--force` to override
@@ -129,6 +130,7 @@ python main.py <youtube_url_or_file> [options]
 | `--resolution` | 720     | 360, 480, 720, 1080               |
 | `--language`   | auto    | ISO 639-1 code (en, zh, id, etc.) |
 | `--no-hook`    | off     | Flag                              |
+| `--no-subtitles` | off  | Flag, disable burned captions     |
 | `--force`      | off     | Flag, ignore cache                |
 
 ```bash
@@ -194,8 +196,9 @@ Open http://localhost:8000/web.html
 2. faster-whisper transcribes audio locally into timestamped segments — zero API cost.
 3. LLM classifies content type, then scores transcript moments by virality and returns `{start, end, score, reason, title}`, enforcing 20–40 s clip length and overlap dedup.
 4. For 9:16 output, YuNet DNN samples frames in each clip, finds largest face, computes horizontal center.
-5. ffmpeg crops to 9:16 with crop window centered on detected face (clamped to frame bounds), scales, pads, encodes.
-6. Transcription/analysis results cached; re-run skips prior stages unless `--force`.
+5. Transcript segments inside each highlight window are sliced, clustered into ≤6 s cues, wrapped, and rendered as caption overlay PNGs.
+6. ffmpeg crops to 9:16 with crop window centered on detected face (clamped to frame bounds), scales, pads, composites caption overlays onto frames, encodes.
+7. Transcription/analysis results cached; re-run skips prior stages unless `--force`.
 
 ---
 
@@ -211,7 +214,8 @@ Open http://localhost:8000/web.html
 │   ├── transcriber.py       # faster-whisper wrapper
 │   ├── analyzer.py          # LLM highlight detection (OpenAI/Gemini/MuAPI)
 │   ├── face_detect.py       # YuNet DNN face detection for smart crop
-│   ├── renderer.py          # ffmpeg clip rendering
+│   ├── renderer.py          # ffmpeg clip rendering (caption overlay composite)
+│   ├── subtitles.py         # SRT + caption overlay PNG generation
 │   ├── cache.py             # transcription/analysis result cache
 │   └── pipeline.py          # orchestrator
 ├── web/
@@ -232,7 +236,7 @@ Open http://localhost:8000/web.html
 - [x] Result caching with `--force` override
 - [ ] Key-frame face tracking across full clip (not just sample frames)
 - [ ] Multi-face tracking (choose or average faces)
-- [ ] Auto subtitle/burn-in captions on clips
+- [x] Auto subtitle/burn-in captions on clips
 - [ ] Music/SFX background mixing
 - [ ] Batch processing multiple videos via web UI
 - [ ] Docker deployment
