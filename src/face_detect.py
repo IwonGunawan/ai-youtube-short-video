@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import cv2
-import numpy as np
 
 _MODEL_PATH = str(Path(__file__).resolve().parent.parent / "models" / "face_detection_yunet_2023mar.onnx")
 
 SAMPLE_INTERVAL = 0.5
+
+STRATEGIES = ("largest", "best", "average", "closest")
 
 
 def _create_detector() -> cv2.FaceDetectorYN:
@@ -23,13 +24,27 @@ def _create_detector() -> cv2.FaceDetectorYN:
     )
 
 
-def detect_face_centers(video_path: Path, start: float, end: float) -> list[tuple[float, float]]:
-    """Track largest-face horizontal center across the clip.
+def detect_face_centers(
+    video_path: Path,
+    start: float,
+    end: float,
+    strategy: str = "largest",
+) -> list[tuple[float, float]]:
+    """Track the crop-target face center across the clip.
 
-    Samples every SAMPLE_INTERVAL seconds across [start, end). Returns
-    keyframes as [(t_seconds_relative_to_start, normalized_center_x)] sorted by
-    time. Empty list when no face is found anywhere in the clip.
+    Samples every SAMPLE_INTERVAL seconds across [start, end). After detection,
+    reduces all faces in a frame to one center using `strategy`:
+      - largest: biggest face area (default, single-speaker framing)
+      - best:    highest-confidence face (choose the cleanest detection)
+      - average: mean center of all faces (both subjects in frame)
+      - closest: face nearest the frame center (most prominent subject)
+
+    Returns keyframes as [(t_seconds_relative_to_start, normalized_center_x)]
+    sorted by time. Empty list when no face is found anywhere in the clip.
     """
+    if strategy not in STRATEGIES:
+        raise ValueError(f"Unknown face tracking strategy: {strategy}. Expected one of {STRATEGIES}")
+
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
         return []
@@ -56,11 +71,26 @@ def detect_face_centers(video_path: Path, start: float, end: float) -> list[tupl
             _, faces = detector.detect(frame)
 
             if faces is not None and len(faces) > 0:
-                largest = max(faces, key=lambda f: f[2] * f[3])
-                face_cx = (largest[0] + largest[2] / 2) / w
-                centers.append((t_abs - start, float(face_cx)))
+                cx = _reduce_center(faces, w, strategy)
+                centers.append((t_abs - start, float(cx)))
 
         t_abs += SAMPLE_INTERVAL
 
     cap.release()
     return centers
+
+
+def _reduce_center(faces: object, w: int, strategy: str) -> float:
+    """Reduce detected faces (array [x,y,w,h,..,score]) to one center_x."""
+    if strategy == "average":
+        xs = [(f[0] + f[2] / 2) / w for f in faces]
+        return sum(xs) / len(xs)
+
+    if strategy == "best":
+        chosen = max(faces, key=lambda f: f[14])
+    elif strategy == "closest":
+        chosen = min(faces, key=lambda f: abs((f[0] + f[2] / 2) / w - 0.5))
+    else:  # largest
+        chosen = max(faces, key=lambda f: f[2] * f[3])
+
+    return (chosen[0] + chosen[2] / 2) / w

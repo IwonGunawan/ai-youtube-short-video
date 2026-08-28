@@ -18,7 +18,7 @@ Generated clips in `output/`.
 
 - **Automatic highlight detection** — LLM ranks moments by virality: hooks, emotional peaks, hot takes, quotables, conflict, practical value
 - **Configurable aspect ratio** — 9:16 vertical, 1:1 square, or any custom `W:H`
-- **Smart face-tracking crop** — YuNet DNN samples frames across the whole clip every 0.5 s, builds time keyframes of the largest-face horizontal center; crop window follows the face across the clip (linear interpolation, holds during detection gaps, falls back to center-crop if no face)
+- **Smart face-tracking crop** — YuNet DNN samples frames across the whole clip every 0.5 s, builds time keyframes of the crop-target face; crop window follows across the clip (linear interpolation, holds during detection gaps, falls back to center-crop if no face). Multi-face strategies: `largest` (default), `best`, `average`, `closest` via `--face-tracking`
 - **Auto subtitles** — speech captions burned into final clips: whisper segments sliced to each highlight window, clustered into cues, wrapped and composited as overlay PNGs (font-scaled per resolution; `--no-subtitles` to disable)
 - **Local transcription** — faster-whisper, no API cost, VAD filtering, auto CUDA detection
 - **Multi-provider LLM** — OpenAI, Gemini
@@ -131,6 +131,7 @@ python main.py <youtube_url_or_file> [options]
 | `--language`   | auto    | ISO 639-1 code (en, zh, id, etc.) |
 | `--no-hook`    | off     | Flag                              |
 | `--no-subtitles` | off  | Flag, disable burned captions     |
+| `--face-tracking` | largest | largest, best, average, closest  |
 | `--force`      | off     | Flag, ignore cache                |
 
 ```bash
@@ -156,7 +157,7 @@ python server.py    # starts on http://127.0.0.1:5000
 | Endpoint        | Method | Body                                                                                                          |
 | --------------- | ------ | ------------------------------------------------------------------------------------------------------------- |
 | `/api/health`   | GET    | -                                                                                                             |
-| `/api/generate` | POST   | `{"target": "...", "n": 3, "ratio": "9:16", "resolution": 720, "language": "", "hook": true, "force": false}` |
+| `/api/generate` | POST   | `{"target": "...", "n": 3, "ratio": "9:16", "resolution": 720, "language": "", "hook": true, "subtitles": true, "face_tracking": "largest", "force": false}` |
 
 ```json
 {
@@ -195,7 +196,7 @@ Open http://localhost:8000/web.html
 1. Pipeline downloads (or accepts) a source video.
 2. faster-whisper transcribes audio locally into timestamped segments — zero API cost.
 3. LLM classifies content type, then scores transcript moments by virality and returns `{start, end, score, reason, title}`, enforcing 20–40 s clip length and overlap dedup.
-4. For 9:16 output, YuNet DNN samples frames across the whole clip (every 0.5 s), tracks the largest face's horizontal center, and emits time keyframes.
+4. For 9:16 output, YuNet DNN samples frames across the whole clip (every 0.5 s), reduces faces per frame via the `--face-tracking` strategy (largest/best/average/closest), emits time keyframes of the target's horizontal center.
 5. Transcript segments inside each highlight window are sliced, clustered into ≤6 s cues, wrapped, and rendered as caption overlay PNGs.
 6. ffmpeg crops to 9:16 with a time-varying crop window that follows the face keyframes (interpolated), scales, pads, composites caption overlays onto frames, encodes.
 7. Transcription/analysis results cached; re-run skips prior stages unless `--force`.
@@ -235,7 +236,7 @@ Open http://localhost:8000/web.html
 - [x] Smart face-tracking crop for 9:16
 - [x] Result caching with `--force` override
 - [x] Key-frame face tracking across full clip (not just sample frames)
-- [ ] Multi-face tracking (choose or average faces)
+- [x] Multi-face tracking (choose or average faces)
 - [x] Auto subtitle/burn-in captions on clips
 - [ ] Music/SFX background mixing
 - [ ] Batch processing multiple videos via web UI

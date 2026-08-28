@@ -145,6 +145,17 @@
       <label for="subtitles">Burn speech captions (unchecking sets --no-subtitles)</label>
     </div>
 
+    <div class="field">
+      <label for="faceTracking">Face tracking (--face-tracking)</label>
+      <select id="faceTracking">
+        <option value="largest" selected>largest</option>
+        <option value="best">best</option>
+        <option value="average">average</option>
+        <option value="closest">closest</option>
+      </select>
+      <p class="hint">largest = single biggest face; best = highest-confidence face; average = all faces; closest = face nearest center.</p>
+    </div>
+
     <button type="submit" id="generateBtn">Generate</button>
 
     <div class="preview" id="preview"></div>
@@ -166,6 +177,7 @@
   var languageEl = document.getElementById('language');
   var hookEl = document.getElementById('hook');
   var subtitlesEl = document.getElementById('subtitles');
+  var faceTrackingEl = document.getElementById('faceTracking');
   var preview = document.getElementById('preview');
   var log = document.getElementById('log');
   var generateBtn = document.getElementById('generateBtn');
@@ -183,6 +195,7 @@
     if (languageEl.value.trim()) parts.push('--language ' + languageEl.value.trim());
     if (!hookEl.checked) parts.push('--no-hook');
     if (!subtitlesEl.checked) parts.push('--no-subtitles');
+    parts.push('--face-tracking ' + faceTrackingEl.value);
     return parts.join(' ');
   }
 
@@ -190,7 +203,7 @@
     var list = targets();
     preview.textContent = buildCommand(list.length ? list[0] : '<video>');
   }
-  [nEl, ratioEl, resolutionEl, languageEl, hookEl, subtitlesEl, urlsEl].forEach(function (el) {
+  [nEl, ratioEl, resolutionEl, languageEl, hookEl, subtitlesEl, faceTrackingEl, urlsEl].forEach(function (el) {
     el.addEventListener('input', updatePreview);
   });
   updatePreview();
@@ -246,7 +259,8 @@
         resolution: resolutionEl.value,
         language: languageEl.value.trim(),
         hook: hookEl.checked,
-        subtitles: subtitlesEl.checked
+        subtitles: subtitlesEl.checked,
+        face_tracking: faceTrackingEl.value
       })
     })
       .then(function (res) { return res.json(); })

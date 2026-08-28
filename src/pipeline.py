@@ -30,6 +30,7 @@ def run_pipeline(
     output_dir: Path | None = None,
     force: bool = False,
     subtitles: bool = True,
+    face_tracking: str = "largest",
 ) -> list[Path]:
     output_dir = output_dir or Path("output")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -75,7 +76,7 @@ def run_pipeline(
         try:
             face_kfs = None
             if ratio == "9:16":
-                face_kfs = detect_face_centers(video_path, hl.start, hl.end)
+                face_kfs = detect_face_centers(video_path, hl.start, hl.end, strategy=face_tracking)
             srt_path = None
             if subtitles:
                 srt_path = output_dir / f"clip_{i:02d}_{title}.srt"

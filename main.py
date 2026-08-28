@@ -19,6 +19,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--language", default="", help="Force Whisper language code, e.g. en (default: auto-detect)")
     p.add_argument("--no-hook", action="store_true", help="Exclude AI-generated hook from clip start")
     p.add_argument("--no-subtitles", action="store_true", help="Do not burn speech captions into clips")
+    p.add_argument("--face-tracking", default="largest", choices=["largest", "best", "average", "closest"],
+                   help="Multi-face crop strategy: largest/best/average/closest (default: largest)")
     p.add_argument("--force", action="store_true", help="Ignore cache, re-run transcription and analysis")
 
     args = p.parse_args(argv)
@@ -35,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
             hook=not args.no_hook,
             force=args.force,
             subtitles=not args.no_subtitles,
+            face_tracking=args.face_tracking,
         )
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
